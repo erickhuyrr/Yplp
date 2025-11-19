@@ -4,11 +4,7 @@ import yt_dlp
 import tempfile
 import os
 
-app = FastAPI(title="yt-dlp API with server-side cookies")
-
-# Server-side cookies file
-SERVER_COOKIES = os.path.join(os.path.dirname(__file__), "cookies.txt")
-USE_COOKIES = os.path.exists(SERVER_COOKIES)
+app = FastAPI(title="yt-dlp API with browser cookies support")
 
 @app.get("/")
 def root():
@@ -23,20 +19,18 @@ def download(
         # Create temporary directory
         temp_dir = tempfile.mkdtemp()
 
-        # Short filename template
+        # Safe filename template
         output_template = os.path.join(temp_dir, "%(id)s.%(ext)s")
 
         # yt-dlp options
         ydl_opts = {
             "outtmpl": output_template,
-            "noplaylist": True
+            "noplaylist": True,
+            # Automatic cookies from browser (Chrome default)
+            "cookiesfrombrowser": ("chrome", None),  # None uses default path
         }
 
-        # Use server-side cookies automatically if available
-        if USE_COOKIES:
-            ydl_opts["cookiefile"] = SERVER_COOKIES
-
-        # Audio options
+        # Audio extraction if requested
         if format.lower() == "mp3":
             ydl_opts.update({
                 "format": "bestaudio/best",
