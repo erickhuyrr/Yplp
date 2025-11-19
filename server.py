@@ -3,8 +3,13 @@ from fastapi.responses import FileResponse, JSONResponse
 import yt_dlp
 import tempfile
 import os
+import shutil
 
-app = FastAPI(title="yt-dlp API with browser cookies support")
+app = FastAPI(title="yt-dlp API with cookies.txt support")
+
+# Server-side cookies file (place cookies.txt in same folder as server.py)
+COOKIES_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
+USE_COOKIES = os.path.exists(COOKIES_FILE)
 
 @app.get("/")
 def root():
@@ -12,25 +17,27 @@ def root():
 
 @app.get("/download")
 def download(
-    url: str = Query(..., description="Video/Audio URL"),
+    url: str = Query(..., description="Video or Audio URL"),
     format: str = Query("mp4", description="mp4 for video, mp3 for audio")
 ):
     try:
         # Create temporary directory
         temp_dir = tempfile.mkdtemp()
 
-        # Safe filename template
+        # Short output template to avoid filename-too-long errors
         output_template = os.path.join(temp_dir, "%(id)s.%(ext)s")
 
         # yt-dlp options
         ydl_opts = {
             "outtmpl": output_template,
-            "noplaylist": True,
-            # Automatic cookies from browser (Chrome default)
-            "cookiesfrombrowser": ("chrome", None),  # None uses default path
+            "noplaylist": True
         }
 
-        # Audio extraction if requested
+        # Use server-side cookies if available
+        if USE_COOKIES:
+            ydl_opts["cookiefile"] = COOKIES_FILE
+
+        # Audio extraction options
         if format.lower() == "mp3":
             ydl_opts.update({
                 "format": "bestaudio/best",
@@ -45,7 +52,7 @@ def download(
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
 
-        # Get downloaded file path
+        # Get downloaded file
         downloaded_file = None
         for file in os.listdir(temp_dir):
             downloaded_file = os.path.join(temp_dir, file)
@@ -60,3 +67,7 @@ def download(
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+    finally:
+        # Clean up temp folder after request
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
