@@ -11,19 +11,21 @@ def root():
     return {"message": "yt-dlp API is running"}
 
 @app.get("/download")
-def download(url: str = Query(..., description="Video/Audio URL"),
-             format: str = Query("mp4", description="mp4 for video, mp3 for audio")):
+def download(
+    url: str = Query(..., description="Video/Audio URL"),
+    format: str = Query("mp4", description="mp4 for video, mp3 for audio")
+):
     try:
         # Create temporary directory
         temp_dir = tempfile.mkdtemp()
 
-        # Prepare output template
-        output_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
+        # Use short filename template to avoid long filename errors
+        output_template = os.path.join(temp_dir, "%(id)s.%(ext)s")
 
         # yt-dlp options
         ydl_opts = {
             "outtmpl": output_template,
-            "noplaylist": True
+            "noplaylist": True,
         }
 
         # Audio options
