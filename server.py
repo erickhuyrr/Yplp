@@ -1,45 +1,40 @@
-from fastapi import FastAPI, Query, UploadFile, File
+from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, JSONResponse
 import yt_dlp
 import tempfile
 import os
-import shutil
 
-app = FastAPI(title="yt-dlp API with cookies support")
+app = FastAPI(title="yt-dlp API with server-side cookies")
+
+# Server-side cookies file
+SERVER_COOKIES = os.path.join(os.path.dirname(__file__), "cookies.txt")
+USE_COOKIES = os.path.exists(SERVER_COOKIES)
 
 @app.get("/")
 def root():
     return {"message": "yt-dlp API is running"}
 
-@app.post("/download")
-async def download(
+@app.get("/download")
+def download(
     url: str = Query(..., description="Video/Audio URL"),
-    format: str = Query("mp4", description="mp4 for video, mp3 for audio"),
-    cookies: UploadFile = File(None)  # optional cookies file
+    format: str = Query("mp4", description="mp4 for video, mp3 for audio")
 ):
     try:
         # Create temporary directory
         temp_dir = tempfile.mkdtemp()
 
-        # Handle cookies file if provided
-        cookies_path = None
-        if cookies:
-            cookies_path = os.path.join(temp_dir, cookies.filename)
-            with open(cookies_path, "wb") as f:
-                shutil.copyfileobj(cookies.file, f)
-
-        # Use short filename template to avoid long filename errors
+        # Short filename template
         output_template = os.path.join(temp_dir, "%(id)s.%(ext)s")
 
         # yt-dlp options
         ydl_opts = {
             "outtmpl": output_template,
-            "noplaylist": True,
+            "noplaylist": True
         }
 
-        # Use cookies if provided
-        if cookies_path:
-            ydl_opts["cookiefile"] = cookies_path
+        # Use server-side cookies automatically if available
+        if USE_COOKIES:
+            ydl_opts["cookiefile"] = SERVER_COOKIES
 
         # Audio options
         if format.lower() == "mp3":
